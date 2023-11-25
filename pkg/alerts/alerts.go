@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"prometheus-manager/globals"
 	"prometheus-manager/models"
 	"prometheus-manager/pkg"
@@ -16,51 +15,7 @@ import (
 	"strings"
 )
 
-type AlertManagerCollector struct{}
-
-func (amc *AlertManagerCollector) ListAlerts() ([]models.GettableAlert, error) {
-
-	req, err := http.NewRequest(http.MethodGet, "http://192.168.1.193:30111/api/v2/alerts", nil)
-	if err != nil {
-		log.Println("1 get failed", err)
-		return []models.GettableAlert{}, err
-	}
-
-	body, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Println("2 get failed", err)
-		return []models.GettableAlert{}, err
-	}
-
-	content, err := ioutil.ReadAll(body.Body)
-
-	var gettableAlert []models.GettableAlert
-
-	err = json.Unmarshal(content, &gettableAlert)
-	if err != nil {
-		log.Println("解析失败", err)
-		return []models.GettableAlert{}, err
-	}
-
-	return gettableAlert, nil
-
-	//for k, v := range gettableAlert {
-	//
-	//	fmt.Println("---")
-	//	var labelsMap = make(map[string]string)
-	//	for labelKey, labelValue := range v.Labels {
-	//		if labelKey == "alertname" {
-	//			continue
-	//		}
-	//		labelsMap[labelKey] = labelValue
-	//	}
-	//
-	//	fmt.Printf("序列: %v\n名称: %s\n标签: %s\n描述: %s\n详情: %v\n状态: %v\n开始时间: %v\n结束时间: %v\n指纹: %v\nxx: %v\nxx: %v\nxx: %s\nxx: %s\n", k, v.Labels["alertname"], labelsMap, v.Annotations["description"], v.Annotations["summary"], v.Status, v.StartsAt, v.EndsAt, v.Fingerprint, v.GeneratorURL, v.Receivers, v.UpdatedAt, v.Alert)
-	//}
-
-}
-
-func (amc *AlertManagerCollector) CreateAlertSilences(actionUserID string, challengeInfo interface{}) {
+func CreateAlertSilence(challengeInfo map[string]interface{}) error {
 
 	var (
 		action   bool
@@ -69,17 +24,20 @@ func (amc *AlertManagerCollector) CreateAlertSilences(actionUserID string, chall
 	)
 
 	// 判断是否是值班用户
-	for _, user := range globals.Config.FeiShu.DutyUser {
-		if actionUserID == user {
-			action = true
-			break
+	actionUserID := challengeInfo["user_id"].(string)
+	if len(globals.Config.FeiShu.DutyUser) != 0 {
+		for _, user := range globals.Config.FeiShu.DutyUser {
+			if actionUserID == user {
+				action = true
+				break
+			}
 		}
-	}
 
-	if !action {
-		info := f.GetFeiShuUserInfo(actionUserID)
-		globals.Logger.Sugar().Error("「" + info.Data.User.Name + "」你无权操作创建静默规则")
-		return
+		if !action {
+			info := f.GetFeiShuUserInfo(actionUserID)
+			globals.Logger.Sugar().Error("「" + info.Data.User.Name + "」你无权操作创建静默规则")
+			return fmt.Errorf("「" + info.Data.User.Name + "」你无权操作创建静默规则")
+		}
 	}
 
 	rawDataJson, _ := json.Marshal(challengeInfo)
@@ -92,16 +50,16 @@ func (amc *AlertManagerCollector) CreateAlertSilences(actionUserID string, chall
 	bodyReader := bytes.NewReader(silencesValueJson)
 
 	fingerprintID := kLabel["comment"]
-	labelData := amc.GetAlertSilencesFingerprintID(fingerprintID.(string))
+	labelData := GetAlertSilencesFingerprintID(fingerprintID.(string))
 	if labelData == fingerprintID {
 		globals.Logger.Sugar().Info("报警静默已存在, 无需重新创建, 报警ID ->", labelData)
-		return
+		return fmt.Errorf("报警静默已存在, 无需重新创建")
 	}
 
 	_, err := utils.Post(globals.Config.AlertManager.URL+"/api/v2/silences", bodyReader)
 	if err != nil {
 		globals.Logger.Sugar().Error("创建报警静默失败 ->", string(silencesValueJson))
-		return
+		return fmt.Errorf("创建报警静默失败")
 	}
 	globals.Logger.Sugar().Info("创建报警静默成功 ->", string(silencesValueJson))
 
@@ -124,12 +82,14 @@ func (amc *AlertManagerCollector) CreateAlertSilences(actionUserID string, chall
 	err = pkg.SendMessageToWebhook(actionUserID, promAlertManager)
 	if err != nil {
 		log.Println("消息卡片发送失败", err)
-		return
+		return err
 	}
+
+	return nil
 
 }
 
-func (amc *AlertManagerCollector) GetAlertSilencesFingerprintID(fingerprintID string) (labelData interface{}) {
+func GetAlertSilencesFingerprintID(fingerprintID string) (labelData interface{}) {
 
 	resp, err := utils.Get(globals.Config.AlertManager.URL + "/api/v2/silences")
 	if err != nil {

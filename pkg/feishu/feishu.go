@@ -11,6 +11,7 @@ import (
 	"prometheus-manager/models"
 	"prometheus-manager/utils"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -85,6 +86,18 @@ func (f *FeiShu) FeiShuMsgTemplate(actionUser string, v models.AlertInfo, Action
 
 // firingMsgTemplate 告警模版
 func (f *FeiShu) firingMsgTemplate(template models.FeiShuMsg, v models.AlertInfo, ActionsValueStr models.CreateAlertSilence) models.FeiShuMsg {
+
+	var contentInfo string
+
+	user := utils.GetCurrentDutyUser()
+	if len(user) == 0 {
+		contentInfo = "暂无安排值班人员"
+	} else {
+		contentInfo = fmt.Sprintf("**👤 值班人员：**<at id=%s></at>", user)
+	}
+
+	urlLine := strings.Split(v.GeneratorURL, "/")
+	v.GeneratorURL = globals.Config.Prometheus.URL + "/" + urlLine[len(urlLine)-1]
 
 	elements := []models.Elements{
 		{
@@ -255,7 +268,7 @@ func (f *FeiShu) firingMsgTemplate(template models.FeiShuMsg, v models.AlertInfo
 		{
 			Tag: "div",
 			Text: models.Texts{
-				Content: fmt.Sprintf("**👤 值班人员：**<at id=%s></at>", utils.GetCurrentDutyUser()),
+				Content: contentInfo,
 				Tag:     "lark_md",
 			},
 		},
@@ -276,6 +289,27 @@ func (f *FeiShu) firingMsgTemplate(template models.FeiShuMsg, v models.AlertInfo
 						},
 						Text: models.Texts{
 							Content: confirmPrompt,
+							Tag:     "plain_text",
+						},
+					},
+				},
+				{
+					Tag: "button",
+					Text: models.ActionsText{
+						Content: "⛓️ 告警链接",
+						Tag:     "plain_text",
+					},
+					Type: "primary",
+					MultiURL: models.MultiURLs{
+						URL: v.GeneratorURL,
+					},
+					Confirm: models.Confirms{
+						Title: models.Titles{
+							Content: "确认",
+							Tag:     "plain_text",
+						},
+						Text: models.Texts{
+							Content: fmt.Sprintf("查询当前 ID: %s 的告警信息", v.Fingerprint),
 							Tag:     "plain_text",
 						},
 					},

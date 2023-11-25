@@ -3,19 +3,24 @@ server:
 
 feishu:
   # 应用ID
-  appId: "cli_a4xxxxxx8500b"
+  appId: "cli_a4cdcaxxxxxxxx00d"
   # 应用密钥
-  appSecret: "6eRbSMvV2xxxxxxIwSwhBT8U"
+  appSecret: "Q8rnC3eIZTxxxxxxxgECQuqM"
   # 群ID
-  chatId: "oc_d3945d05xxxxxx1ab62a27c"
+  chatId: "oc_17518f8653e32xxxxxxxxxx4f0ad3ac08b"
   # Token
-  token: "t-g10497bJKBHxxxxxxGMZFQ5D5IIFU"
+  token: "t-g104beebK2xxxxxxxxK4C2CUDGNFU"
   # 值班
   dutyUser:
     # zuxuan
     - "886341fg"
 
 AlertManager:
-  url: "http://192.168.1.10:9093"
+  url: "http://192.168.0.102:9093"
   # 静默时长(单位分钟)
   silenceTime: "120"
+
+Prometheus:
+#  url: "http://192.168.0.66:9090"
+  url: "http://192.168.0.102:9090"
+  rulePath: "/Users/zuxuan/Documents/worksapce/prometheus/prom_data/rules"
