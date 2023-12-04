@@ -3,6 +3,7 @@ package controllers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"log"
@@ -13,24 +14,17 @@ import (
 
 type EventController struct{}
 
-var (
-	promAlertManager = make(map[string]interface{})
-)
-
 func (aemc *EventController) AlertEventMsg(ctx *gin.Context) {
 
 	globals.AlertType = ctx.Query("type")
 	globals.DataSource = ctx.Query("dataSource")
+	env := ctx.Query("env")
 	resp, _ := ioutil.ReadAll(ctx.Request.Body)
 	globals.RespBody = resp
 
-	err := json.Unmarshal(resp, &promAlertManager)
-	if err != nil {
-		globals.Logger.Sugar().Error("告警信息解析失败 ->", err)
-		return
-	}
+	fmt.Println("*** body ->", string(resp))
 
-	err = pkg.SendMessageToWebhook("", promAlertManager)
+	err := pkg.SendMessageToWebhook("", resp, env)
 	if err != nil {
 		ctx.JSON(500, gin.H{"code": 500, "data": err})
 		return

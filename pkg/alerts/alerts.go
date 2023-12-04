@@ -10,7 +10,6 @@ import (
 	"prometheus-manager/models"
 	"prometheus-manager/pkg"
 	"prometheus-manager/pkg/cache"
-	"prometheus-manager/pkg/feishu"
 	"prometheus-manager/utils"
 	"strings"
 )
@@ -19,7 +18,6 @@ func CreateAlertSilence(challengeInfo map[string]interface{}) error {
 
 	var (
 		action   bool
-		f        feishu.FeiShu
 		cardInfo models.CardInfo
 	)
 
@@ -34,7 +32,7 @@ func CreateAlertSilence(challengeInfo map[string]interface{}) error {
 		}
 
 		if !action {
-			info := f.GetFeiShuUserInfo(actionUserID)
+			info := utils.GetFeiShuUserInfo(actionUserID)
 			globals.Logger.Sugar().Error("「" + info.Data.User.Name + "」你无权操作创建静默规则")
 			return fmt.Errorf("「" + info.Data.User.Name + "」你无权操作创建静默规则")
 		}
@@ -77,9 +75,10 @@ func CreateAlertSilence(challengeInfo map[string]interface{}) error {
 	// 将告警状态转换为静默状态
 	promAlertManager["alerts"] = AlertInfo
 	promAlertManager["alerts"].([]interface{})[0].(map[string]interface{})["status"] = "silence"
+	prometheusAlertBody, _ := json.Marshal(promAlertManager)
 
 	// 发送消息卡片
-	err = pkg.SendMessageToWebhook(actionUserID, promAlertManager)
+	err = pkg.SendMessageToWebhook(actionUserID, prometheusAlertBody, "")
 	if err != nil {
 		log.Println("消息卡片发送失败", err)
 		return err

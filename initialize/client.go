@@ -14,7 +14,7 @@ func InitClient() {
 
 	feiShuClient()
 	cacheClient()
-	sqlClient()
+	//sqlClient()
 
 }
 
