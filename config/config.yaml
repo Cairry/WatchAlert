@@ -10,13 +10,9 @@ feishu:
   chatId: "oc_17518f8653e32xxxxxxxxxx4f0ad3ac08b"
   # Token
   token: "t-g104beebK2xxxxxxxxK4C2CUDGNFU"
-  # 值班
-  dutyUser:
-    # zuxuan
-    - "886341fg"
 
 AlertManager:
-  url: "http://192.168.0.102:9093"
+  url: "http://192.168.1.177:9093"
   # 静默时长(单位分钟)
   silenceTime: "120"
 
@@ -24,3 +20,14 @@ Prometheus:
 #  url: "http://192.168.0.66:9090"
   url: "http://192.168.0.102:9090"
   rulePath: "/Users/zuxuan/Documents/worksapce/prometheus/prom_data/rules"
+
+Jaeger:
+  url: "http://192.168.1.177"
+
+MySQL:
+  host: 192.168.1.176
+  port: 3306
+  user: root
+  pass: Jsdesign.2022
+  dbName: alert
+  timeout: 10s
