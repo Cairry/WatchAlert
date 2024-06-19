@@ -30,6 +30,7 @@ type (
 		User() InterUserRepo
 		UserRole() InterUserRoleRepo
 		UserPermissions() InterUserPermissionsRepo
+		Detection() InterDetectionRepo
 	}
 )
 
@@ -64,3 +65,4 @@ func (e *entryRepo) UserRole() InterUserRoleRepo { return newUserRoleInterface(e
 func (e *entryRepo) UserPermissions() InterUserPermissionsRepo {
 	return newInterUserPermissionsRepo(e.db, e.g)
 }
+func (e *entryRepo) Detection() InterDetectionRepo { return newInterDetectionRepo(e.db, e.g) }

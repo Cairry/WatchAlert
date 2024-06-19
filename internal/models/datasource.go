@@ -56,7 +56,7 @@ func (ds AlertDataSource) CheckHealth() (bool, error) {
 		return true, nil
 	}
 
-	res, err := utilsHttp.Get(url + fullPath)
+	res, err := utilsHttp.Get(nil, nil, url+fullPath)
 	if err != nil {
 		return false, fmt.Errorf("request url: %s failed", url)
 	}

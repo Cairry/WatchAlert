@@ -1,63 +1,58 @@
 package http
 
 import (
-	"bytes"
+	log "github.com/sirupsen/logrus"
+	"io"
 	"net/http"
+	url2 "net/url"
 	"time"
-	"watchAlert/internal/global"
 )
 
-func Get(url string) (*http.Response, error) {
+func Get(proxy *url2.URL, header map[string]string, url string) (*http.Response, error) {
 
 	client := http.Client{
-		Timeout: 1 * time.Second,
+		Timeout: 5 * time.Second,
+	}
+
+	if proxy != nil {
+		client.Transport = &http.Transport{
+			Proxy: http.ProxyURL(proxy),
+		}
 	}
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if header != nil {
+		for k, v := range header {
+			req.Header.Set(k, v)
+		}
+	}
 	if err != nil {
-		global.Logger.Sugar().Error("请求建立失败: ", err)
+		log.Errorf(err.Error())
 		return nil, err
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		global.Logger.Sugar().Error("请求发送失败: ", err)
+		log.Errorf(err.Error())
 		return nil, err
 	}
 
 	return resp, nil
 }
 
-func Post(url string, bodyReader *bytes.Reader) (*http.Response, error) {
-
+func Post(url string, bodyReader io.Reader) (*http.Response, error) {
 	request, err := http.NewRequest(http.MethodPost, url, bodyReader)
-	request.Header.Set("Content-Type", "application/json")
 	if err != nil {
-		global.Logger.Sugar().Error("请求建立失败: ", err)
+		log.Errorf(err.Error())
 		return nil, err
 	}
+	request.Header.Set("Content-Type", "application/json")
+
 	resp, err := http.DefaultClient.Do(request)
 	if err != nil {
-		global.Logger.Sugar().Error("请求发送失败: ", err)
+		log.Errorf(err.Error())
 		return nil, err
 	}
 
 	return resp, nil
 
 }
-
-//func PostReloadPrometheus() error {
-//
-//	url := globals.Config.Prometheus.URL + "/-/reload"
-//	req, err := http.NewRequest(http.MethodPost, url, nil)
-//	if err != nil {
-//		globals.Logger.Sugar().Error("PostReloadPrometheus 请求建立失败 ->", err)
-//		return err
-//	}
-//	_, err = http.DefaultClient.Do(req)
-//	if err != nil {
-//		globals.Logger.Sugar().Error("PostReloadPrometheus 请求发送失败 ->", err)
-//		return err
-//	}
-//
-//	return nil
-//}

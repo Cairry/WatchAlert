@@ -50,6 +50,7 @@ func InitDB() *gorm.DB {
 		&models.Tenant{},
 		&models.Dashboard{},
 		&models.AuditLog{},
+		&models.DetectionSite{},
 	)
 	if err != nil {
 		global.Logger.Sugar().Error(err.Error())

@@ -15,6 +15,7 @@ type (
 		Silence() InterSilenceCache
 		Rule() InterRuleCache
 		Event() InterEventCache
+		Detention() InterDetectionCache
 	}
 )
 
@@ -25,7 +26,8 @@ func NewEntryCache() InterEntryCache {
 	}
 }
 
-func (e entryCache) Redis() *redis.Client       { return e.redis }
-func (e entryCache) Silence() InterSilenceCache { return newSilenceCacheInterface(e.redis) }
-func (e entryCache) Rule() InterRuleCache       { return newRuleCacheInterface(e.redis) }
-func (e entryCache) Event() InterEventCache     { return newEventCacheInterface(e.redis) }
+func (e entryCache) Redis() *redis.Client           { return e.redis }
+func (e entryCache) Silence() InterSilenceCache     { return newSilenceCacheInterface(e.redis) }
+func (e entryCache) Rule() InterRuleCache           { return newRuleCacheInterface(e.redis) }
+func (e entryCache) Event() InterEventCache         { return newEventCacheInterface(e.redis) }
+func (e entryCache) Detention() InterDetectionCache { return newDetectionCacheInterface(e.redis) }

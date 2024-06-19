@@ -28,6 +28,7 @@ type ApiGroup struct {
 	ClientController
 	AWSCloudWatchController
 	AWSCloudWatchRDSController
+	DetectionCollector
 }
 
 var ApiGroupApp = new(ApiGroup)
