@@ -2,15 +2,20 @@ package consumer
 
 import (
 	"fmt"
+	"github.com/zeromicro/go-zero/core/logc"
 	"strings"
 	"sync"
 	"time"
+	"watchAlert/alert/mute"
 	"watchAlert/alert/process"
-	"watchAlert/alert/sender"
 	"watchAlert/internal/global"
 	"watchAlert/internal/models"
 	"watchAlert/pkg/ctx"
-	"watchAlert/pkg/utils/hash"
+	"watchAlert/pkg/sender"
+	"watchAlert/pkg/templates"
+	"watchAlert/pkg/tools"
+
+	"golang.org/x/sync/errgroup"
 )
 
 type Consume struct {
@@ -39,10 +44,12 @@ func NewInterEvalConsumeWork(ctx *ctx.Context) InterEvalConsume {
 
 // Run 启动告警消费进程
 func (ec *Consume) Run() {
+	taskChan := make(chan struct{}, 1)
 	go func() {
 		for {
+			taskChan <- struct{}{}
 			ec.processAlerts()
-			time.Sleep(time.Second)
+			<-taskChan
 		}
 	}()
 }
@@ -51,13 +58,11 @@ func (ec *Consume) Run() {
 func (ec *Consume) processAlerts() {
 	alertKeys := process.GetRedisFiringKeys(ec.ctx)
 	ec.loadAlertsToMem(alertKeys)
-
 	for key, alerts := range ec.alertsMap {
 		if len(alerts) == 0 {
 			continue
 		}
 		waitTime := ec.calculateWaitTime(key)
-
 		if ec.Timing[key] >= waitTime {
 			curEvents := ec.filterAlerts(alerts)
 			ec.fireAlertEvent(curEvents)
@@ -127,7 +132,6 @@ func (ec *Consume) filterAlerts(alerts []models.AlertCurEvent) map[string][]mode
 			newAlertsMap[alert.RuleId] = append(newAlertsMap[alert.RuleId], alert)
 		}
 	}
-
 	return newAlertsMap
 }
 
@@ -140,15 +144,16 @@ func (ec *Consume) fireAlertEvent(alertsMap map[string][]models.AlertCurEvent) {
 				ec.removeAlertFromCache(alert)
 				err := process.RecordAlertHisEvent(ec.ctx, alert)
 				if err != nil {
-					global.Logger.Sugar().Error(err.Error())
+					logc.Error(ec.ctx.Ctx, err.Error())
 					return
 				}
 			}
 		}
 	}
 
-	ec.handleAlert(ec.preStoreFiringAlertEvents)
-	ec.handleAlert(ec.preStoreRecoverAlertEvents)
+	ec.GotoSendAlert(ec.preStoreFiringAlertEvents)
+	ec.GotoSendAlert(ec.preStoreRecoverAlertEvents)
+
 }
 
 // 删除缓存
@@ -216,12 +221,11 @@ func (ec *Consume) addAlertToGroupByRuleId(alert models.AlertCurEvent) {
 
 // hash
 func (ec *Consume) calculateGroupHash(key, value string) string {
-	return hash.Md5Hash([]byte(key + ":" + value))
+	return tools.Md5Hash([]byte(key + ":" + value))
 }
 
-// 推送告警
-func (ec *Consume) handleAlert(alertMapping map[string][]models.AlertCurEvent) {
-	curTime := time.Now().Unix()
+// GotoSendAlert 推送告警
+func (ec *Consume) GotoSendAlert(alertMapping map[string][]models.AlertCurEvent) {
 	for key, alerts := range alertMapping {
 		if strings.Contains(key, "_") {
 			i := strings.Split(key, "_")
@@ -229,39 +233,94 @@ func (ec *Consume) handleAlert(alertMapping map[string][]models.AlertCurEvent) {
 		}
 
 		object := ec.ctx.DB.Rule().GetRuleObject(key)
-		if object.RuleId == "" {
-			return
+		if object.RuleId == "" || len(alerts) <= 0 {
+			continue
 		}
 
-		if *object.AlarmAggregation {
-			alerts = ec.groupAlert(curTime, alerts)
-		}
+		ec.handleSubscribe(alerts)
+		ec.handleAlert(object, alerts)
+	}
+}
 
-		if len(alerts) <= 0 {
-			return
-		}
-
-		for _, alert := range alerts {
-			noticeId := process.GetNoticeGroupId(alert)
-
+// 处理订阅告警逻辑
+func (ec *Consume) handleSubscribe(alerts []models.AlertCurEvent) {
+	g := new(errgroup.Group)
+	for _, event := range alerts {
+		event := event
+		g.Go(func() error {
+			noticeId := process.GetNoticeGroupId(event)
 			r := models.NoticeQuery{
-				TenantId: alert.TenantId,
+				TenantId: event.TenantId,
 				Uuid:     noticeId,
 			}
 			noticeData, _ := ec.ctx.DB.Notice().Get(r)
-			alert.DutyUser = process.GetDutyUser(ec.ctx, noticeData)
-			err := sender.Sender(ec.ctx, alert, noticeData)
+			err := processSubscribe(ec.ctx, event, noticeData)
 			if err != nil {
-				global.Logger.Sugar().Errorf(err.Error())
-				return
+				return fmt.Errorf("处理订阅逻辑失败: %s", err.Error())
 			}
+			return nil
+		})
+	}
 
-			if !alert.IsRecovered {
-				alert.LastSendTime = curTime
-				ctx.Redis.Event().SetCache("Firing", alert, 0)
-			}
+	if err := g.Wait(); err != nil {
+		logc.Error(ec.ctx.Ctx, err.Error())
+	}
+}
+
+// 处理通用告警逻辑
+func (ec *Consume) handleAlert(rule models.AlertRule, alerts []models.AlertCurEvent) {
+	curTime := time.Now().Unix()
+	if *rule.AlarmAggregation {
+		alerts = ec.groupAlert(curTime, alerts)
+	}
+
+	for _, alert := range alerts {
+		noticeId := process.GetNoticeGroupId(alert)
+
+		r := models.NoticeQuery{
+			TenantId: alert.TenantId,
+			Uuid:     noticeId,
+		}
+
+		if !alert.IsRecovered {
+			alert.LastSendTime = curTime
+			ctx.Redis.Event().SetCache("Firing", alert, 0)
+		}
+
+		noticeData, _ := ec.ctx.DB.Notice().Get(r)
+		alert.DutyUser = process.GetDutyUser(ec.ctx, noticeData)
+
+		mp := mute.MuteParams{
+			EffectiveTime: alert.EffectiveTime,
+			RecoverNotify: *alert.RecoverNotify,
+			IsRecovered:   alert.IsRecovered,
+		}
+		ok := mute.IsMuted(mp)
+		if ok {
+			return
+		}
+
+		n := templates.NewTemplate(ec.ctx, alert, noticeData)
+		err := sender.Sender(ec.ctx, sender.SendParmas{
+			TenantId:    alert.TenantId,
+			RuleName:    alert.RuleName,
+			Severity:    alert.Severity,
+			NoticeType:  noticeData.NoticeType,
+			NoticeId:    noticeId,
+			NoticeName:  noticeData.Name,
+			IsRecovered: alert.IsRecovered,
+			Hook:        noticeData.Hook,
+			Email:       noticeData.Email,
+			Content:     n.CardContentMsg,
+			Event:       nil,
+		})
+		if err != nil {
+			logc.Errorf(ec.ctx.Ctx, err.Error())
+			return
 		}
 	}
+
+	return
 }
 
 // 聚合告警

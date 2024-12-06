@@ -1,15 +1,16 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"io"
 	"net/url"
+	"strconv"
+	"time"
 	middleware "watchAlert/internal/middleware"
 	"watchAlert/internal/models"
 	"watchAlert/internal/services"
-	"watchAlert/pkg/utils/http"
+	"watchAlert/pkg/provider"
+	"watchAlert/pkg/tools"
 )
 
 type DatasourceController struct{}
@@ -43,6 +44,7 @@ func (dc DatasourceController) API(gin *gin.RouterGroup) {
 		datasourceB.GET("dataSourceGet", dc.Get)
 		datasourceB.GET("dataSourceSearch", dc.Search)
 		datasourceB.GET("promQuery", dc.PromQuery)
+		datasourceB.POST("dataSourcePing", dc.Ping)
 	}
 
 }
@@ -124,28 +126,34 @@ func (dc DatasourceController) PromQuery(ctx *gin.Context) {
 	BindQuery(ctx, r)
 
 	Service(ctx, func() (interface{}, interface{}) {
-		var res models.PromQueryRes
+		var res provider.QueryResponse
 		path := "/api/v1/query"
-		if r.DatasourceType == "VictoriaMetrics" {
-			path = "/prometheus" + path
-		}
-
-		encodedQuery := url.QueryEscape(r.Query)
-		get, err := http.Get(nil, fmt.Sprintf("%s%s?query=%s", r.Addr, path, encodedQuery))
+		params := url.Values{}
+		params.Add("query", r.Query)
+		params.Add("time", strconv.FormatInt(time.Now().Unix(), 10))
+		fullURL := fmt.Sprintf("%s%s?%s", r.Addr, path, params.Encode())
+		get, err := tools.Get(nil, fullURL, 10)
 		if err != nil {
 			return nil, err
 		}
 
-		all, err := io.ReadAll(get.Body)
-		if err != nil {
-			return nil, err
-		}
-
-		err = json.Unmarshal(all, &res)
-		if err != nil {
+		if err := tools.ParseReaderBody(get.Body, &res); err != nil {
 			return nil, err
 		}
 
 		return res, nil
+	})
+}
+
+func (dc DatasourceController) Ping(ctx *gin.Context) {
+	r := new(models.AlertDataSource)
+	BindJson(ctx, r)
+
+	Service(ctx, func() (interface{}, interface{}) {
+		ok := provider.CheckDatasourceHealth(*r)
+		if !ok {
+			return "", fmt.Errorf("数据源不可达!")
+		}
+		return "", nil
 	})
 }

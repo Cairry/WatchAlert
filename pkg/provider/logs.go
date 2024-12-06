@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"watchAlert/internal/models"
-	"watchAlert/pkg/utils/cmd"
+	"watchAlert/pkg/tools"
 )
 
 const (
@@ -18,6 +18,7 @@ const (
 type LogsFactoryProvider interface {
 	Query(options LogQueryOptions) ([]Logs, int, error)
 	Check() (bool, error)
+	GetExternalLabels() map[string]interface{}
 }
 
 type LogQueryOptions struct {
@@ -53,7 +54,7 @@ type Logs struct {
 
 func (l Logs) GetFingerprint() string {
 	h := md5.New()
-	streamString := cmd.JsonMarshal(l.Metric)
+	streamString := tools.JsonMarshal(l.Metric)
 	h.Write([]byte(streamString))
 	fingerprint := hex.EncodeToString(h.Sum(nil))
 	return fingerprint

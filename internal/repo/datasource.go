@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"gorm.io/gorm"
 	"watchAlert/internal/models"
-	"watchAlert/pkg/utils/cmd"
 )
 
 type (
@@ -36,7 +35,9 @@ func (ds DatasourceRepo) List(r models.DatasourceQuery) ([]models.AlertDataSourc
 	var data []models.AlertDataSource
 
 	db := ds.db.Model(&models.AlertDataSource{})
-	db.Where("tenant_id = ?", r.TenantId)
+	if r.TenantId != "" {
+		db.Where("tenant_id = ?", r.TenantId)
+	}
 	err := db.Find(&data).Error
 	if err != nil {
 		return nil, err
@@ -57,14 +58,9 @@ func (ds DatasourceRepo) Search(r models.DatasourceQuery) ([]models.AlertDataSou
 		db.Where("type = ?", r.Type)
 	}
 	if r.Query != "" {
-		db.Where("id = ? OR name = ? OR description = ?", "%"+r.Query+"%", "%"+r.Query+"%", "%"+r.Query+"%")
+		db.Where("type LIKE ? OR id LIKE ? OR name LIKE ? OR description LIKE ?", "%"+r.Query+"%", "%"+r.Query+"%", "%"+r.Query+"%", "%"+r.Query+"%")
 	}
-	if r.Id == "" && r.Type == "" && r.Query == "" {
-		err := db.Find(&data).Error
-		if err != nil {
-			return nil, err
-		}
-	}
+
 	err := db.Find(&data).Error
 	if err != nil {
 		return nil, err
@@ -86,11 +82,7 @@ func (ds DatasourceRepo) Get(r models.DatasourceQuery) (models.AlertDataSource, 
 }
 
 func (ds DatasourceRepo) Create(r models.AlertDataSource) error {
-	id := "ds-" + cmd.RandId()
-	data := r
-	data.Id = id
-
-	err := ds.g.Create(models.AlertDataSource{}, data)
+	err := ds.g.Create(models.AlertDataSource{}, r)
 	if err != nil {
 		return err
 	}

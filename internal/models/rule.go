@@ -2,8 +2,7 @@ package models
 
 import (
 	"sort"
-	//"watchAlert/pkg/client"
-	"watchAlert/pkg/utils/hash"
+	"watchAlert/pkg/tools"
 )
 
 type Duration int64
@@ -45,6 +44,8 @@ type AlertRule struct {
 	KubernetesConfig KubernetesConfig `json:"kubernetesConfig" gorm:"kubernetesConfig;serializer:json"`
 
 	ElasticSearchConfig ElasticSearchConfig `json:"elasticSearchConfig" gorm:"elasticSearchConfig;serializer:json"`
+
+	NetworkEndpointConfig ProbingEndpointConfig `json:"networkEndpointConfig" gorm:"networkEndpointConfig;serializer:json"`
 
 	NoticeId         string      `json:"noticeId"`
 	NoticeGroup      NoticeGroup `json:"noticeGroup" gorm:"noticeGroup;serializer:json"`
@@ -123,9 +124,13 @@ type CloudWatchConfig struct {
 
 // EvalCondition 日志评估条件
 type EvalCondition struct {
-	Type     string  `json:"type"`
-	Operator string  `json:"operator"`
-	Value    float64 `json:"value"`
+	Type string `json:"type"`
+	// 运算
+	Operator string `json:"operator"`
+	// 查询值
+	QueryValue float64 `json:"queryValue"`
+	// 预期值
+	ExpectedValue float64 `json:"value"`
 }
 
 type Fingerprint uint64
@@ -150,7 +155,7 @@ type RuleResponse struct {
 
 var (
 	// cache the signature of an empty label set.
-	emptyLabelSignature = hash.HashNew()
+	emptyLabelSignature = tools.HashNew()
 )
 
 const SeparatorByte byte = 255
@@ -173,12 +178,12 @@ func (a *AlertRule) Fingerprint() Fingerprint {
 	sort.Strings(labelNames)
 
 	// 在随机生成的hash的基础上，新增标签hash
-	sum := hash.HashNew()
+	sum := tools.HashNew()
 	for _, labelName := range labelNames {
-		sum = hash.HashAdd(sum, labelName)
-		sum = hash.HashAddByte(sum, SeparatorByte)
-		sum = hash.HashAdd(sum, a.Labels[labelName])
-		sum = hash.HashAddByte(sum, SeparatorByte)
+		sum = tools.HashAdd(sum, labelName)
+		sum = tools.HashAddByte(sum, SeparatorByte)
+		sum = tools.HashAdd(sum, a.Labels[labelName])
+		sum = tools.HashAddByte(sum, SeparatorByte)
 	}
 	return Fingerprint(sum)
 

@@ -1,17 +1,20 @@
 package alert
 
 import (
+	"github.com/zeromicro/go-zero/core/logc"
 	"watchAlert/alert/consumer"
 	"watchAlert/alert/eval"
-	"watchAlert/alert/monitor"
+	"watchAlert/alert/probing"
+	"watchAlert/alert/storage"
 	"watchAlert/internal/global"
 	"watchAlert/pkg/ctx"
 )
 
 var (
-	MonEvalTask     monitor.MonitorSSLEval
-	MonConsumerTask consumer.MonitorSslConsumer
-	AlertRule       eval.AlertRule
+	AlertRule eval.AlertRuleEval
+
+	ProductProbing probing.ProductProbing
+	ConsumeProbing probing.ConsumeProbing
 )
 
 func Initialize(ctx *ctx.Context) {
@@ -19,20 +22,22 @@ func Initialize(ctx *ctx.Context) {
 	consumer.NewInterEvalConsumeWork(ctx).Run()
 	// 初始化监控告警的基础配置
 	initAlarmConfig(ctx)
-	// 初始化证书监控的消费任务
-	MonConsumerTask = consumer.NewMonitorSslConsumer(ctx)
-	// 初始化证书监控任务
-	MonEvalTask = monitor.NewMonitorSSLEval()
-	MonEvalTask.RePushTask(ctx, &MonConsumerTask)
+	alarmRecoverWaitStore := storage.NewAlarmRecoverStore(ctx)
+
 	// 初始化告警规则评估任务
-	AlertRule = eval.NewAlertRuleEval(ctx)
-	AlertRule.RePushTask(ctx)
+	AlertRule = eval.NewAlertRuleEval(ctx, alarmRecoverWaitStore)
+	AlertRule.RePushTask()
+
+	// 初始化拨测任务
+	ConsumeProbing = probing.NewProbingConsumerTask(ctx)
+	ProductProbing = probing.NewProbingTask(ctx)
+	ProductProbing.RePushRule(&ConsumeProbing)
 }
 
 func initAlarmConfig(ctx *ctx.Context) {
 	get, err := ctx.DB.Setting().Get()
 	if err != nil {
-		global.Logger.Sugar().Errorf(err.Error())
+		logc.Errorf(ctx.Ctx, err.Error())
 		return
 	}
 

@@ -1,23 +1,25 @@
 package provider
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/url"
 	"strconv"
 	"time"
 	"watchAlert/internal/models"
-	"watchAlert/pkg/utils/http"
+	"watchAlert/pkg/tools"
 )
 
 type LokiProvider struct {
-	url string
+	url            string
+	ExternalLabels map[string]interface{}
 }
 
 func NewLokiClient(datasource models.AlertDataSource) (LogsFactoryProvider, error) {
-	return LokiProvider{url: datasource.HTTP.URL}, nil
+	return LokiProvider{
+		url:            datasource.HTTP.URL,
+		ExternalLabels: datasource.Labels,
+	}, nil
 }
 
 type result struct {
@@ -60,15 +62,13 @@ func (l LokiProvider) Query(options LogQueryOptions) ([]Logs, int, error) {
 
 	args := fmt.Sprintf("/loki/api/v1/query_range?query=%s&direction=%s&limit=%d&start=%d&end=%d", url.QueryEscape(options.Loki.Query), options.Loki.Direction, options.Loki.Limit, options.StartAt.(int64), options.EndAt.(int64))
 	requestURL := l.url + args
-	res, err := http.Get(nil, requestURL)
+	res, err := tools.Get(nil, requestURL, 10)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	body, _ := io.ReadAll(res.Body)
 	var resultData result
-	err = json.Unmarshal(body, &resultData)
-	if err != nil {
+	if err := tools.ParseReaderBody(res.Body, &resultData); err != nil {
 		return nil, 0, errors.New(fmt.Sprintf("json.Unmarshal failed, %s", err.Error()))
 	}
 
@@ -99,7 +99,7 @@ func (l LokiProvider) Query(options LogQueryOptions) ([]Logs, int, error) {
 }
 
 func (l LokiProvider) Check() (bool, error) {
-	res, err := http.Get(nil, l.url+"/loki/api/v1/labels")
+	res, err := tools.Get(nil, l.url+"/loki/api/v1/labels", 10)
 	if err != nil {
 		return false, err
 	}
@@ -108,4 +108,8 @@ func (l LokiProvider) Check() (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+func (l LokiProvider) GetExternalLabels() map[string]interface{} {
+	return l.ExternalLabels
 }

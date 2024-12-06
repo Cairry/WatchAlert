@@ -4,13 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/zeromicro/go-zero/core/logc"
 	"gorm.io/gorm"
-	"watchAlert/internal/global"
-	models "watchAlert/internal/models"
+	"watchAlert/internal/models"
 	"watchAlert/pkg/ctx"
 	"watchAlert/pkg/response"
-	"watchAlert/pkg/utils/cmd"
-	"watchAlert/pkg/utils/jwt"
+	utils2 "watchAlert/pkg/tools"
 )
 
 func Permission() gin.HandlerFunc {
@@ -28,16 +27,16 @@ func Permission() gin.HandlerFunc {
 		}
 
 		// Bearer Token, 获取 Token 值
-		tokenStr = tokenStr[len(utils.TokenType)+1:]
+		tokenStr = tokenStr[len(utils2.TokenType)+1:]
 
-		userId := utils.GetUserID(tokenStr)
+		userId := utils2.GetUserID(tokenStr)
 
 		c := ctx.DO()
 		// 获取当前用户
 		var user models.Member
 		err := c.DB.DB().Model(&models.Member{}).Where("user_id = ?", userId).First(&user).Error
 		if gorm.ErrRecordNotFound == err {
-			global.Logger.Sugar().Errorf("用户不存在, uid: %s", userId)
+			logc.Errorf(c.Ctx, fmt.Sprintf("用户不存在, uid: %s", userId))
 		}
 		if err != nil {
 			response.PermissionFail(context)
@@ -45,10 +44,13 @@ func Permission() gin.HandlerFunc {
 			return
 		}
 
+		context.Set("UserId", user.UserId)
+		context.Set("UserEmail", user.Email)
+
 		// 获取租户用户角色
 		tenantUserInfo, _ := c.DB.Tenant().GetTenantLinkedUserInfo(models.GetTenantLinkedUserInfo{ID: tid, UserID: userId})
 		if err != nil {
-			global.Logger.Sugar().Errorf("获取租户用户角色失败 %s", err.Error())
+			logc.Errorf(c.Ctx, fmt.Sprintf("获取租户用户角色失败 %s", err.Error()))
 			response.TokenFail(context)
 			context.Abort()
 			return
@@ -62,11 +64,11 @@ func Permission() gin.HandlerFunc {
 		err = c.DB.DB().Model(&models.UserRole{}).Where("id = ?", tenantUserInfo.UserRole).First(&role).Error
 		if err != nil {
 			response.Fail(context, fmt.Sprintf("获取用户 %s 的角色失败, %s %s", user.UserName, tenantUserInfo.UserRole, err.Error()), "failed")
-			global.Logger.Sugar().Errorf("获取用户 %s 的角色失败 %s %s", user.UserName, tenantUserInfo.UserRole, err.Error())
+			logc.Errorf(c.Ctx, fmt.Sprintf("获取用户 %s 的角色失败 %s %s", user.UserName, tenantUserInfo.UserRole, err.Error()))
 			context.Abort()
 			return
 		}
-		_ = json.Unmarshal([]byte(cmd.JsonMarshal(role.Permissions)), &permission)
+		_ = json.Unmarshal([]byte(utils2.JsonMarshal(role.Permissions)), &permission)
 
 		urlPath := context.Request.URL.Path
 

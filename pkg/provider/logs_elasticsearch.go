@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"github.com/olivere/elastic/v7"
 	"watchAlert/internal/models"
-	utilsHttp "watchAlert/pkg/utils/http"
+	utilsHttp "watchAlert/pkg/tools"
 )
 
 type ElasticSearchDsProvider struct {
-	cli *elastic.Client
-	url string
+	cli            *elastic.Client
+	url            string
+	ExternalLabels map[string]interface{}
 }
 
 func NewElasticSearchClient(ctx context.Context, ds models.AlertDataSource) (LogsFactoryProvider, error) {
@@ -24,8 +25,9 @@ func NewElasticSearchClient(ctx context.Context, ds models.AlertDataSource) (Log
 	}
 
 	return ElasticSearchDsProvider{
-		client,
-		ds.ElasticSearch.Url,
+		cli:            client,
+		url:            ds.ElasticSearch.Url,
+		ExternalLabels: ds.Labels,
 	}, nil
 }
 
@@ -85,7 +87,7 @@ func (e ElasticSearchDsProvider) Query(options LogQueryOptions) ([]Logs, int, er
 }
 
 func (e ElasticSearchDsProvider) Check() (bool, error) {
-	res, err := utilsHttp.Get(nil, e.url+"/_cat/health")
+	res, err := utilsHttp.Get(nil, e.url+"/_cat/health", 10)
 	if err != nil {
 		return false, err
 	}
@@ -94,4 +96,8 @@ func (e ElasticSearchDsProvider) Check() (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+func (e ElasticSearchDsProvider) GetExternalLabels() map[string]interface{} {
+	return e.ExternalLabels
 }

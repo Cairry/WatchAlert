@@ -279,11 +279,11 @@ func PermissionsInfo() map[string]UserPermissions {
 			Key: "搜索通知模版",
 			API: "/api/w8t/noticeTemplate/searchNoticeTmpl",
 		},
-		"settingSave": {
+		"saveSystemSetting": {
 			Key: "编辑系统配置",
 			API: "/api/w8t/setting/saveSystemSetting",
 		},
-		"settingGet": {
+		"getSystemSetting": {
 			Key: "获取系统配置",
 			API: "/api/w8t/setting/getSystemSetting",
 		},
@@ -319,25 +319,29 @@ func PermissionsInfo() map[string]UserPermissions {
 			Key: "获取Kubernetes事件类型列表",
 			API: "/api/w8t/kubernetes/getReasonList",
 		},
-		"createMon": {
-			Key: "创建证书监控",
-			API: "/api/w8t/monitor/createMon",
+		"createProbing": {
+			Key: "创建拨测规则",
+			API: "/api/w8t/probing/createProbing",
 		},
-		"updateMon": {
-			Key: "更新证书监控",
-			API: "/api/w8t/monitor/updateMon",
+		"updateProbing": {
+			Key: "更新拨测规则",
+			API: "/api/w8t/probing/updateProbing",
 		},
-		"deleteMon": {
-			Key: "删除证书监控",
-			API: "/api/w8t/monitor/deleteMon",
+		"deleteProbing": {
+			Key: "删除拨测规则",
+			API: "/api/w8t/probing/deleteProbing",
 		},
-		"listMon": {
-			Key: "获取证书监控列表",
-			API: "/api/w8t/monitor/listMon",
+		"listProbing": {
+			Key: "获取拨测规则列表",
+			API: "/api/w8t/probing/listProbing",
 		},
-		"getMon": {
-			Key: "获取证书监控信息",
-			API: "/api/w8t/monitor/getMon",
+		"searchProbing": {
+			Key: "获取拨测规则信息",
+			API: "/api/w8t/probing/searchProbing",
+		},
+		"onceProbing": {
+			Key: "一次性拨测任务",
+			API: "/api/w8t/probing/onceProbing",
 		},
 		"listFolder": {
 			Key: "获取仪表盘目录列表",
@@ -366,6 +370,34 @@ func PermissionsInfo() map[string]UserPermissions {
 		"getDashboardFullUrl": {
 			Key: "获取仪表盘完整URL",
 			API: "/api/w8t/dashboard/getDashboardFullUrl",
+		},
+		"createSubscribe": {
+			Key: "创建告警订阅",
+			API: "/api/w8t/subscribe/createSubscribe",
+		},
+		"deleteSubscribe": {
+			Key: "删除告警订阅",
+			API: "/api/w8t/subscribe/deleteSubscribe",
+		},
+		"listSubscribe": {
+			Key: "获取告警订阅",
+			API: "/api/w8t/subscribe/listSubscribe",
+		},
+		"getSubscribe": {
+			Key: "搜索告警订阅",
+			API: "/api/w8t/subscribe/getSubscribe",
+		},
+		"noticeRecordList": {
+			Key: "获取通知记录列表",
+			API: "/api/w8t/notice/noticeRecordList",
+		},
+		"noticeRecordMetric": {
+			Key: "获取通知记录指标",
+			API: "/api/w8t/notice/noticeRecordMetric",
+		},
+		"dataSourcePing": {
+			Key: "数据源连接测试",
+			API: "/api/w8t/datasource/dataSourcePing",
 		},
 	}
 }

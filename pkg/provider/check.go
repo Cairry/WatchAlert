@@ -2,7 +2,8 @@ package provider
 
 import (
 	"context"
-	"watchAlert/internal/global"
+	"fmt"
+	"github.com/zeromicro/go-zero/core/logc"
 	"watchAlert/internal/models"
 )
 
@@ -24,7 +25,7 @@ func CheckDatasourceHealth(datasource models.AlertDataSource) bool {
 			check, err = vmClient.Check()
 		}
 	case "Kubernetes":
-		cli, err := NewKubernetesClient(context.Background(), datasource.KubeConfig)
+		cli, err := NewKubernetesClient(context.Background(), datasource.KubeConfig, datasource.Labels)
 		if err == nil {
 			_, err = cli.GetWarningEvent("", 1)
 			check = (err == nil)
@@ -55,7 +56,7 @@ func CheckDatasourceHealth(datasource models.AlertDataSource) bool {
 
 	// 检查数据源健康状况并返回结果
 	if err != nil || !check {
-		global.Logger.Sugar().Errorf("数据源不健康, Id: %s, Name: %s, Type: %s", datasource.Id, datasource.Name, datasource.Type)
+		logc.Errorf(context.Background(), fmt.Sprintf("数据源不健康, Id: %s, Name: %s, Type: %s", datasource.Id, datasource.Name, datasource.Type))
 		return false
 	}
 

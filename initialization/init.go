@@ -2,23 +2,23 @@ package initialization
 
 import (
 	"context"
+	"fmt"
+	"github.com/zeromicro/go-zero/core/logc"
+	"golang.org/x/sync/errgroup"
 	"watchAlert/alert"
 	"watchAlert/config"
 	"watchAlert/internal/cache"
 	"watchAlert/internal/global"
+	"watchAlert/internal/models"
 	"watchAlert/internal/repo"
 	"watchAlert/internal/services"
 	"watchAlert/pkg/ctx"
-	"watchAlert/pkg/utils/logger"
 )
 
 func InitBasic() {
 
 	// 初始化配置
 	global.Config = config.InitConfig()
-
-	// 初始化日志格式
-	global.Logger = logger.InitLogger()
 
 	dbRepo := repo.NewRepoEntry()
 	rCache := cache.NewEntryCache()
@@ -38,4 +38,36 @@ func InitBasic() {
 	// 初始化角色数据
 	InitUserRolesSQL(ctx)
 
+	// 导入数据源 Client 到存储池
+	importClientPools(ctx)
+
+	if global.Config.Ldap.Enabled {
+		// 定时同步LDAP用户任务
+		go services.LdapService.SyncUsersCronjob()
+	}
+
+}
+
+func importClientPools(ctx *ctx.Context) {
+	list, err := ctx.DB.Datasource().List(models.DatasourceQuery{})
+	if err != nil {
+		logc.Error(ctx.Ctx, err.Error())
+		return
+	}
+
+	g := new(errgroup.Group)
+	for _, datasource := range list {
+		datasource := datasource
+		if !*datasource.Enabled {
+			continue
+		}
+		g.Go(func() error {
+			err := services.DatasourceService.WithAddClientToProviderPools(datasource)
+			if err != nil {
+				logc.Error(ctx.Ctx, fmt.Sprintf("添加到 Client 存储池失败, err: %s", err.Error()))
+				return err
+			}
+			return nil
+		})
+	}
 }

@@ -1,25 +1,30 @@
 package provider
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
-	"io"
+	"github.com/zeromicro/go-zero/core/logc"
+	"net/url"
 	"strconv"
 	"time"
-	"watchAlert/internal/global"
 	"watchAlert/internal/models"
-	utilsHttp "watchAlert/pkg/utils/http"
+	utilsHttp "watchAlert/pkg/tools"
 )
 
 type VictoriaMetricsProvider struct {
-	address string
+	ExternalLabels map[string]interface{}
+	address        string
 }
 
 func NewVictoriaMetricsClient(ds models.AlertDataSource) (MetricsFactoryProvider, error) {
-	return VictoriaMetricsProvider{address: ds.HTTP.URL}, nil
+	return VictoriaMetricsProvider{
+		address:        ds.HTTP.URL,
+		ExternalLabels: ds.Labels,
+	}, nil
 }
 
 type QueryResponse struct {
+	Status string `json:"status"`
 	VMData VMData `json:"data"`
 }
 
@@ -34,30 +39,20 @@ type VMResult struct {
 }
 
 func (v VictoriaMetricsProvider) Query(promQL string) ([]Metrics, error) {
-	apiEndpoint := fmt.Sprintf("%s%s?query=%s&time=%d", v.address, "/api/v1/query", promQL, time.Now().Unix())
-
-	resp, err := utilsHttp.Get(nil, apiEndpoint)
+	params := url.Values{}
+	params.Add("query", promQL)
+	params.Add("time", strconv.FormatInt(time.Now().Unix(), 10))
+	fullURL := fmt.Sprintf("%s%s?%s", v.address, "/api/v1/query", params.Encode())
+	resp, err := utilsHttp.Get(nil, fullURL, 10)
 	if err != nil {
-		global.Logger.Sugar().Error(err.Error())
+		logc.Error(context.Background(), err.Error())
 		return nil, err
 	}
-	defer func(Body io.ReadCloser) {
-		err = Body.Close()
-		if err != nil {
-			global.Logger.Sugar().Error(err.Error())
-		}
-	}(resp.Body)
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		global.Logger.Sugar().Error(err.Error())
-		return nil, err
-	}
+	defer resp.Body.Close()
 
 	var vmRespBody QueryResponse
-	err = json.Unmarshal(body, &vmRespBody)
-	if err != nil {
-		global.Logger.Sugar().Error(err.Error())
+	if err := utilsHttp.ParseReaderBody(resp.Body, &vmRespBody); err != nil {
+		logc.Error(context.Background(), err.Error())
 		return nil, err
 	}
 
@@ -69,7 +64,7 @@ func vmVectors(res []VMResult) []Metrics {
 	for _, item := range res {
 		valueFloat, err := strconv.ParseFloat(item.Value[1].(string), 64)
 		if err != nil {
-			global.Logger.Sugar().Error(err.Error())
+			logc.Error(context.Background(), err.Error())
 			return nil
 		}
 		vectors = append(vectors, Metrics{
@@ -83,7 +78,7 @@ func vmVectors(res []VMResult) []Metrics {
 }
 
 func (v VictoriaMetricsProvider) Check() (bool, error) {
-	res, err := utilsHttp.Get(nil, v.address+"/api/v1/labels")
+	res, err := utilsHttp.Get(nil, v.address+"/api/v1/labels", 10)
 	if err != nil {
 		return false, err
 	}
@@ -92,4 +87,8 @@ func (v VictoriaMetricsProvider) Check() (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+func (v VictoriaMetricsProvider) GetExternalLabels() map[string]interface{} {
+	return v.ExternalLabels
 }

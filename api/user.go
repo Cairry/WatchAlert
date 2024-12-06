@@ -5,14 +5,14 @@ import (
 	middleware "watchAlert/internal/middleware"
 	"watchAlert/internal/models"
 	"watchAlert/internal/services"
-	jwtUtils "watchAlert/pkg/utils/jwt"
+	jwtUtils "watchAlert/pkg/tools"
 )
 
 type UserController struct{}
 
 /*
-	用户 API
-	/api/w8t/user
+用户 API
+/api/w8t/user
 */
 func (uc UserController) API(gin *gin.RouterGroup) {
 
@@ -104,7 +104,7 @@ func (uc UserController) Update(ctx *gin.Context) {
 
 func (uc UserController) Delete(ctx *gin.Context) {
 	r := new(models.MemberQuery)
-	BindQuery(ctx, r)
+	BindJson(ctx, r)
 
 	Service(ctx, func() (interface{}, interface{}) {
 		return services.UserService.Delete(r)

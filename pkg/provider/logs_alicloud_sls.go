@@ -6,11 +6,12 @@ import (
 	util "github.com/alibabacloud-go/tea-utils/v2/service"
 	"github.com/alibabacloud-go/tea/tea"
 	"watchAlert/internal/models"
-	"watchAlert/pkg/utils/cmd"
+	"watchAlert/pkg/tools"
 )
 
 type AliCloudSlsDsProvider struct {
-	client *sls20201230.Client
+	client         *sls20201230.Client
+	ExternalLabels map[string]interface{}
 }
 
 func NewAliCloudSlsClient(source models.AlertDataSource) (LogsFactoryProvider, error) {
@@ -24,7 +25,10 @@ func NewAliCloudSlsClient(source models.AlertDataSource) (LogsFactoryProvider, e
 		return AliCloudSlsDsProvider{}, err
 	}
 
-	return AliCloudSlsDsProvider{client: result}, nil
+	return AliCloudSlsDsProvider{
+		client:         result,
+		ExternalLabels: source.Labels,
+	}, nil
 }
 
 func (a AliCloudSlsDsProvider) Query(query LogQueryOptions) ([]Logs, int, error) {
@@ -52,7 +56,7 @@ func (a AliCloudSlsDsProvider) Query(query LogQueryOptions) ([]Logs, int, error)
 		metric  = map[string]interface{}{}
 	)
 	for _, body := range res.Body {
-		msg := cmd.FormatJson(cmd.JsonMarshal(body))
+		msg := tools.FormatJson(tools.JsonMarshal(body))
 		msgList = append(msgList, msg)
 
 		metric["_container_name_"] = body["__tag__:_container_name_"]
@@ -72,4 +76,8 @@ func (a AliCloudSlsDsProvider) Query(query LogQueryOptions) ([]Logs, int, error)
 func (a AliCloudSlsDsProvider) Check() (bool, error) {
 
 	return true, nil
+}
+
+func (a AliCloudSlsDsProvider) GetExternalLabels() map[string]interface{} {
+	return a.ExternalLabels
 }

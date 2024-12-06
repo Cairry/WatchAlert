@@ -1,8 +1,9 @@
 package provider
 
 import (
+	"fmt"
 	"strconv"
-	"watchAlert/pkg/utils/hash"
+	"watchAlert/pkg/tools"
 )
 
 const (
@@ -13,6 +14,7 @@ const (
 type MetricsFactoryProvider interface {
 	Query(promQL string) ([]Metrics, error)
 	Check() (bool, error)
+	GetExternalLabels() map[string]interface{}
 }
 
 type Metrics struct {
@@ -23,14 +25,14 @@ type Metrics struct {
 
 func (m Metrics) GetFingerprint() string {
 	if len(m.Metric) == 0 {
-		return strconv.FormatUint(hash.HashNew(), 10)
+		return strconv.FormatUint(tools.HashNew(), 10)
 	}
 
 	var result uint64
 	for labelName, labelValue := range m.Metric {
-		sum := hash.HashNew()
-		sum = hash.HashAdd(sum, labelName)
-		sum = hash.HashAdd(sum, labelValue.(string))
+		sum := tools.HashNew()
+		sum = tools.HashAdd(sum, labelName)
+		sum = tools.HashAdd(sum, fmt.Sprintf("%v", labelValue))
 		result ^= sum
 	}
 

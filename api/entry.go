@@ -30,7 +30,8 @@ type ApiGroup struct {
 	AWSCloudWatchRDSController
 	SettingsController
 	KubernetesTypesController
-	MonitorSSLController
+	SubscribeController
+	ProbingController
 }
 
 var ApiGroupApp = new(ApiGroup)

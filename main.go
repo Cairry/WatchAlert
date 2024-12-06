@@ -8,9 +8,7 @@ import (
 var Version string
 
 func main() {
-
 	global.Version = Version
 	initialization.InitBasic()
 	initialization.InitRoute()
-
 }
