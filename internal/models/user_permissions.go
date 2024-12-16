@@ -19,6 +19,10 @@ func PermissionsInfo() map[string]UserPermissions {
 			Key: "搜索日历表",
 			API: "/api/w8t/calendar/calendarSearch",
 		},
+		"getCalendarUsers": {
+			Key: "获取值班表用户列表",
+			API: "/api/w8t/calendar/getCalendarUsers",
+		},
 		"calendarUpdate": {
 			Key: "更新日历表",
 			API: "/api/w8t/calendar/calendarUpdate",
@@ -195,6 +199,10 @@ func PermissionsInfo() map[string]UserPermissions {
 			Key: "创建规则模版",
 			API: "/api/w8t/ruleTmpl/ruleTmplCreate",
 		},
+		"ruleTmplUpdate": {
+			Key: "更新规则模版",
+			API: "/api/w8t/ruleTmpl/ruleTmplUpdate",
+		},
 		"ruleTmplDelete": {
 			Key: "删除规则模版",
 			API: "/api/w8t/ruleTmpl/ruleTmplDelete",
@@ -202,6 +210,10 @@ func PermissionsInfo() map[string]UserPermissions {
 		"ruleTmplGroupCreate": {
 			Key: "创建规则模版组",
 			API: "/api/w8t/ruleTmplGroup/ruleTmplGroupCreate",
+		},
+		"ruleTmplGroupUpdate": {
+			Key: "更新规则模版组",
+			API: "/api/w8t/ruleTmplGroup/ruleTmplGroupUpdate",
 		},
 		"ruleTmplGroupDelete": {
 			Key: "删除规则模版组",
